@@ -1,0 +1,16 @@
+# ============================================================
+#  Grafana dashboard auto-provisioning
+#  Is folder ki saari *.json dashboards Grafana khud load karta hai
+# ============================================================
+apiVersion: 1
+
+providers:
+  - name: 'cyberwing'
+    orgId: 1
+    folder: 'Cyberwing'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

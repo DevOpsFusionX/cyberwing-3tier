@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyberwing.pk Guestbook — Azure 3-Tier</title>
+  <style>
+    :root { --purple:#4b1fa8; --purple-2:#6d3fd4; --bg:#f5f3ff; --ink:#1f2430; --muted:#6b7280; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(160deg, var(--bg) 0%, #ffffff 65%);
+      color: var(--ink);
+      max-width: 640px; margin: 0 auto; padding: 32px 18px 64px;
+      min-height: 100vh;
+    }
+    .card {
+      background:#fff; border:1px solid #e6e2f7; border-radius:16px;
+      padding:24px; box-shadow:0 10px 30px rgba(75,31,168,.08);
+    }
+    h1 { font-size: 1.55rem; margin:0 0 4px; color: var(--purple); }
+    .sub { color: var(--muted); font-size: .85rem; margin:0 0 20px; }
+    label { display:block; font-size:.8rem; font-weight:600; color:#454b5a; margin:12px 0 6px; }
+    input, textarea {
+      width:100%; padding:10px 12px; font:inherit; font-size:.95rem;
+      border:1px solid #d7d2ea; border-radius:10px; background:#fbfaff; color:var(--ink);
+    }
+    textarea { resize: vertical; min-height: 74px; }
+    input:focus, textarea:focus { outline:2px solid var(--purple-2); border-color:transparent; }
+    button {
+      margin-top:16px; width:100%; padding:11px 16px; font:inherit; font-weight:700;
+      color:#fff; background:linear-gradient(135deg,var(--purple),var(--purple-2));
+      border:0; border-radius:10px; cursor:pointer; transition: transform .06s ease, opacity .15s;
+    }
+    button:hover { opacity:.92; } button:active { transform: scale(.99); }
+    button:disabled { opacity:.55; cursor: wait; }
+    #status { font-size:.82rem; margin-top:10px; min-height:1.1em; }
+    .ok { color:#0f7b3f; } .err { color:#b3261e; }
+    h2 { font-size:.95rem; margin:28px 0 10px; color:#454b5a; text-transform:uppercase; letter-spacing:.06em; }
+    ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+    li { background:#faf9ff; border:1px solid #ece8fa; border-left:4px solid var(--purple-2);
+         border-radius:10px; padding:10px 12px; font-size:.92rem; line-height:1.45; }
+    li .who { font-weight:700; color:var(--purple); }
+    li .when { display:block; color:var(--muted); font-size:.72rem; margin-top:4px; }
+    .empty { color:var(--muted); font-size:.9rem; }
+    footer { text-align:center; color:var(--muted); font-size:.72rem; margin-top:28px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Cyberwing.pk Guestbook</h1>
+    <p class="sub">Frontend (nginx) → Backend (Node.js) → Database (MySQL) — Azure par 3-tier</p>
+
+    <label for="name">Aap ka naam</label>
+    <input id="name" maxlength="50" placeholder="Misaal: Ali" autocomplete="name">
+
+    <label for="msg">Aap ka message</label>
+    <textarea id="msg" maxlength="255" placeholder="Misaal: Yeh meri pehli Azure 3-tier app hai!"></textarea>
+
+    <button id="sendBtn" onclick="send()">Bhejein</button>
+    <div id="status" role="status" aria-live="polite"></div>
+  </div>
+
+  <h2>Messages</h2>
+  <ul id="list"></ul>
+  <footer>Cyberwing.pk · Azure 3-Tier Lab · HTML + nginx · Express · MySQL</footer>
+
+  <script>
+    const list   = document.getElementById('list');
+    const status = document.getElementById('status');
+    const btn    = document.getElementById('sendBtn');
+
+    function setStatus(text, ok) {
+      status.textContent = text;
+      status.className = ok ? 'ok' : 'err';
+    }
+
+    // Messages backend se laa kar list mein dikhao
+    async function load() {
+      try {
+        const r = await fetch('/api/messages');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+
+        list.innerHTML = '';
+        if (!data.length) {
+          list.innerHTML = '<li class="empty">Abhi koi message nahi — pehla message aap bhejein!</li>';
+          return;
+        }
+        data.forEach(m => {
+          const li = document.createElement('li');
+          const who = document.createElement('span');
+          who.className = 'who';
+          who.textContent = m.name;             // textContent = XSS se hifazat
+          li.appendChild(who);
+          li.appendChild(document.createTextNode(': ' + m.message));
+          if (m.created_at) {
+            const when = document.createElement('span');
+            when.className = 'when';
+            when.textContent = new Date(m.created_at).toLocaleString();
+            li.appendChild(when);
+          }
+          list.appendChild(li);
+        });
+      } catch (e) {
+        list.innerHTML = '<li class="empty">Messages load nahi hue: ' + e.message + '</li>';
+      }
+    }
+
+    // Naya message backend ko bhejo
+    async function send() {
+      const name = document.getElementById('name').value.trim();
+      const message = document.getElementById('msg').value.trim();
+
+      if (!name || !message) return setStatus('Naam aur message dono likhein.', false);
+
+      btn.disabled = true;
+      setStatus('Bheja ja raha hai...', true);
+      try {
+        const r = await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, message }),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+
+        document.getElementById('msg').value = '';
+        setStatus('Shukriya! Message save ho gaya.', true);
+        load();
+      } catch (e) {
+        setStatus('Message save nahi hua: ' + e.message, false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    load();   // page khulte hi list dikhao
+  </script>
+</body>
+</html>

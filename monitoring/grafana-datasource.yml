@@ -1,0 +1,15 @@
+# ============================================================
+#  Grafana datasource auto-provisioning
+#  Grafana start hote hi Prometheus khud add ho jata hai
+#  uid: prometheus  -> dashboard JSON isi uid se datasource dhoondta hai
+# ============================================================
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

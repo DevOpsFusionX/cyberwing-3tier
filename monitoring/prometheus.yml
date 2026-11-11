@@ -1,0 +1,30 @@
+# ============================================================
+#  Prometheus scrape config
+#  Har 15 second baad in targets se metrics uthata hai
+# ============================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+
+  # Prometheus khud
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Server (host) metrics
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Container metrics
+  - job_name: cadvisor
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Hamari app ka backend (custom /metrics endpoint)
+  - job_name: backend
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['backend:3000']

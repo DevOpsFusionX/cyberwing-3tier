@@ -1,0 +1,80 @@
+# ============================================================
+#  Application stack (3 tiers + reverse proxy)
+#  Chalane ka tareeqa:  docker compose up -d
+# ============================================================
+services:
+
+  # ---------- Tier 0: reverse proxy (sirf yeh internet par hai) ----------
+  nginx:
+    image: nginx:1.30-alpine
+    container_name: cw-nginx
+    ports:
+      - "80:80"                       # host ka 80 -> container ka 80
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - app_net
+    restart: unless-stopped
+
+  # ---------- Tier 1: frontend (static HTML) ----------
+  frontend:
+    image: ${DOCKERHUB_USER:-cyberwing}/cyberwing-frontend:${IMAGE_TAG:-latest}
+    container_name: cw-frontend
+    networks:
+      - app_net
+    restart: unless-stopped
+
+  # ---------- Tier 2: backend (API) ----------
+  backend:
+    image: ${DOCKERHUB_USER:-cyberwing}/cyberwing-backend:${IMAGE_TAG:-latest}
+    container_name: cw-backend
+    environment:
+      DB_HOST: database
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - app_net                     # nginx se baat karne ke liye
+      - db_net                      # database se baat karne ke liye
+    restart: unless-stopped
+
+  # ---------- Tier 3: database (sirf internal network) ----------
+  database:
+    image: mysql:8.4
+    container_name: cw-database
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks:
+      - db_net                      # koi bahar ka raasta nahi
+    restart: unless-stopped
+
+# ---------- Networks ----------
+networks:
+  app_net:
+    name: cyberwing_app             # fixed naam (monitoring stack isi se jurega)
+  db_net:
+    name: cyberwing_db
+    internal: true                  # internet access bilkul band = 3-tier isolation
+
+# ---------- Volumes ----------
+volumes:
+  db_data:
+    name: cyberwing_db_data         # database ka data mehfooz

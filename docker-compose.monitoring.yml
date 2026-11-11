@@ -1,0 +1,94 @@
+# ============================================================
+#  Monitoring stack (app stack ke SAATH chalta hai)
+#  Command: docker compose -f docker-compose.monitoring.yml up -d
+# ============================================================
+services:
+
+  # ---------- Metrics collector + time-series database ----------
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    container_name: cw-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d      # 15 din ka data rakho
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    networks:
+      - monitoring_net
+      - cyberwing_app                          # backend /metrics scrape karne ke liye
+    ports:
+      - "127.0.0.1:9090:9090"      # SIRF loopback -> SSH tunnel se dekh sakte hain
+    restart: unless-stopped
+
+  # ---------- Dashboards ----------
+  grafana:
+    image: grafana/grafana:13.2.6
+    container_name: cw-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3000}   # .env se aata hai
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3000:3000"                            # Grafana sirf aap ki IP se khula hai (NSG)
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring_net
+    restart: unless-stopped
+
+  # ---------- Container-level metrics (per container CPU/RAM/network) ----------
+  cadvisor:
+    image: ghcr.io/google/cadvisor:v0.60.6
+    container_name: cw-cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring_net
+    restart: unless-stopped
+
+  # ---------- Host-level metrics (CPU/RAM/disk/network) ----------
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: cw-node-exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/host/root
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    networks:
+      - monitoring_net
+    restart: unless-stopped
+
+# ---------- Networks ----------
+networks:
+  monitoring_net:
+    name: cyberwing_monitoring
+  cyberwing_app:
+    external: true                 # app stack ki network (pehle app chale)
+    name: cyberwing_app
+
+# ---------- Volumes ----------
+volumes:
+  prom_data:
+    name: cyberwing_prom_data
+  grafana_data:
+    name: cyberwing_grafana_data

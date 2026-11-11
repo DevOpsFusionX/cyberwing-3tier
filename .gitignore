@@ -1,0 +1,21 @@
+# ---------- secrets (kabhi GitHub par na jayen) ----------
+.env
+*.pem
+*.key
+
+# ---------- node ----------
+node_modules/
+npm-debug.log
+
+# ---------- terraform (agar future mein use karein) ----------
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+
+# ---------- OS / editor junk ----------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

@@ -1,0 +1,18 @@
+{
+  "name": "cyberwing-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cyberwing.pk 3-tier Guestbook API (Azure lab)",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "^4.22.3",
+    "mysql2": "^3.24.6",
+    "prom-client": "^15.1.3"
+  }
+}
